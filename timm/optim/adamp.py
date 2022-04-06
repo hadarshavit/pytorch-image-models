@@ -25,17 +25,28 @@ def _layer_view(x) -> torch.Tensor:
 def projection(p, grad, perturb, delta: float, wd_ratio: float, eps: float):
     wd = 1.
     expand_size = (-1,) + (1,) * (len(p.shape) - 1)
-    for view_func in [_channel_view, _layer_view]:
-        param_view = view_func(p)
-        grad_view = view_func(grad)
-        cosine_sim = F.cosine_similarity(grad_view, param_view, dim=1, eps=eps).abs_()
+    
+    param_view = _channel_view(p)
+    grad_view = _channel_view(grad)
+    cosine_sim = F.cosine_similarity(grad_view, param_view, dim=1, eps=eps).abs_()
 
-        # FIXME this is a problem for PyTorch XLA
-        if cosine_sim.max() < delta / math.sqrt(param_view.size(1)):
-            p_n = p / param_view.norm(p=2, dim=1).add_(eps).reshape(expand_size)
-            perturb -= p_n * view_func(p_n * perturb).sum(dim=1).reshape(expand_size)
-            wd = wd_ratio
-            return perturb, wd
+    # FIXME this is a problem for PyTorch XLA
+    if cosine_sim.max() < delta / math.sqrt(param_view.size(1)):
+        p_n = p / param_view.norm(p=2, dim=1).add_(eps).reshape(expand_size)
+        perturb -= p_n * _channel_view(p_n * perturb).sum(dim=1).reshape(expand_size)
+        wd = wd_ratio
+        return perturb, wd
+    
+    param_view = _layer_view(p)
+    grad_view = _layer_view(grad)
+    cosine_sim = F.cosine_similarity(grad_view, param_view, dim=1, eps=eps).abs_()
+
+    # FIXME this is a problem for PyTorch XLA
+    if cosine_sim.max() < delta / math.sqrt(param_view.size(1)):
+        p_n = p / param_view.norm(p=2, dim=1).add_(eps).reshape(expand_size)
+        perturb -= p_n * _layer_view(p_n * perturb).sum(dim=1).reshape(expand_size)
+        wd = wd_ratio
+        return perturb, wd
 
     return perturb, wd
 
