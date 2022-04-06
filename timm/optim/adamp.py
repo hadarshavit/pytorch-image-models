@@ -21,7 +21,7 @@ def _channel_view(x) -> torch.Tensor:
 def _layer_view(x) -> torch.Tensor:
     return x.reshape(1, -1)
 
-
+@torch.jit.script
 def projection(p, grad, perturb, delta: float, wd_ratio: float, eps: float):
     wd = 1.
     expand_size = (-1,) + (1,) * (len(p.shape) - 1)
